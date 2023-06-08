@@ -1,5 +1,6 @@
 import pygame 
 from settings import *
+from support import import_folder
 
 class Player(pygame.sprite.Sprite):
     def __init__(self,pos,groups,obstacle_sprites):
@@ -27,7 +28,8 @@ class Player(pygame.sprite.Sprite):
         'right_attack':[],'left_attack':[],'up_attack':[],'down_attack':[]}
 
         for animation in self.animations.keys():
-            print(animation)
+            full_path = character_path + animation
+            self.animations[animation] = import_folder(full_path)
 
     def input(self):
         keys = pygame.key.get_pressed()
