@@ -3,33 +3,40 @@ from settings import *
 from support import import_folder
 
 class Player(pygame.sprite.Sprite):
-    def __init__(self,pos,groups,obstacle_sprites,create_attack):
+    def __init__(self,pos,groups,obstacle_sprites,create_attack,destroy_attack):
         super().__init__(groups)
         self.image = pygame.image.load('../graphics/test/player.png').convert_alpha()
         self.rect = self.image.get_rect(topleft = pos)
         self.hitbox = self.rect.inflate(0,-26)
 
-        #graphics setup
-        self.import_player_assests()
+        # graphics setup
+        self.import_player_assets()
         self.status = 'down'
         self.frame_index = 0
         self.animation_speed = 0.15
 
-        #movement
+        # movement 
         self.direction = pygame.math.Vector2()
         self.speed = 5
         self.attacking = False
         self.attack_cooldown = 400
         self.attack_time = None
-        self.create_attack = create_attack
-
         self.obstacle_sprites = obstacle_sprites
 
-    def import_player_assests(self):
+        # weapon
+        self.create_attack = create_attack
+        self.destroy_attack = destroy_attack
+        self.weapon_index = 0
+        self.weapon = list(weapon_data.keys())[self.weapon_index]
+        self.can_switch_weapon = True
+        self.weapon_switch_time = None
+        self.switch_duration_cooldown = 200
+
+    def import_player_assets(self):
         character_path = '../graphics/player/'
         self.animations = {'up': [],'down': [],'left': [],'right': [],
-        'right_idle':[],'left_idle':[],'up_idle':[],'down_idle':[],
-        'right_attack':[],'left_attack':[],'up_attack':[],'down_attack':[]}
+            'right_idle':[],'left_idle':[],'up_idle':[],'down_idle':[],
+            'right_attack':[],'left_attack':[],'up_attack':[],'down_attack':[]}
 
         for animation in self.animations.keys():
             full_path = character_path + animation
@@ -39,7 +46,7 @@ class Player(pygame.sprite.Sprite):
         if not self.attacking:
             keys = pygame.key.get_pressed()
 
-            #movement input
+            # movement input
             if keys[pygame.K_UP]:
                 self.direction.y = -1
                 self.status = 'up'
@@ -58,38 +65,47 @@ class Player(pygame.sprite.Sprite):
             else:
                 self.direction.x = 0
 
-            #attack input
+            # attack input 
             if keys[pygame.K_SPACE]:
                 self.attacking = True
                 self.attack_time = pygame.time.get_ticks()
                 self.create_attack()
 
-            #magic input
+            # magic input 
             if keys[pygame.K_LCTRL]:
                 self.attacking = True
                 self.attack_time = pygame.time.get_ticks()
                 print('magic')
-            
+
+            if keys[pygame.K_q] and self.can_switch_weapon:
+                self.can_switch_weapon = False
+                self.weapon_switch_time = pygame.time.get_ticks()
+                
+                if self.weapon_index < len(list(weapon_data.keys())) - 1:
+                    self.weapon_index += 1
+                else:
+                    self.weapon_index = 0
+                    
+                self.weapon = list(weapon_data.keys())[self.weapon_index]
+
     def get_status(self):
-        
-        #idle status
+
+        # idle status
         if self.direction.x == 0 and self.direction.y == 0:
             if not 'idle' in self.status and not 'attack' in self.status:
                 self.status = self.status + '_idle'
-                
+
         if self.attacking:
             self.direction.x = 0
-            self.direction.x = 0
+            self.direction.y = 0
             if not 'attack' in self.status:
                 if 'idle' in self.status:
-                    # overwrite idle
                     self.status = self.status.replace('_idle','_attack')
                 else:
                     self.status = self.status + '_attack'
         else:
             if 'attack' in self.status:
                 self.status = self.status.replace('_attack','')
-            
 
     def move(self,speed):
         if self.direction.magnitude() != 0:
@@ -100,7 +116,6 @@ class Player(pygame.sprite.Sprite):
         self.hitbox.y += self.direction.y * speed
         self.collision('vertical')
         self.rect.center = self.hitbox.center
-        
 
     def collision(self,direction):
         if direction == 'horizontal':
@@ -125,16 +140,21 @@ class Player(pygame.sprite.Sprite):
         if self.attacking:
             if current_time - self.attack_time >= self.attack_cooldown:
                 self.attacking = False
-                
+                self.destroy_attack()
+
+        if not self.can_switch_weapon:
+            if current_time - self.weapon_switch_time >= self.switch_duration_cooldown:
+                self.can_switch_weapon = True
+
     def animate(self):
         animation = self.animations[self.status]
-        
-        # loop over the frame index
+
+        # loop over the frame index 
         self.frame_index += self.animation_speed
         if self.frame_index >= len(animation):
             self.frame_index = 0
-            
-        #set the image
+
+        # set the image
         self.image = animation[int(self.frame_index)]
         self.rect = self.image.get_rect(center = self.hitbox.center)
 
